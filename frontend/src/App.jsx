@@ -16,6 +16,8 @@ export default function App() {
     fetch("/api/projects")
       .then(r => r.json())
       .then(data => {
+        // Guard against non-array response (e.g. backend error object)
+        if (!Array.isArray(data)) return;
         setProjects(data);
         if (data.length > 0) setSelectedProject(data[0]);
       })
@@ -25,7 +27,11 @@ export default function App() {
   // Poll tasks every 3 s
   useEffect(() => {
     const poll = () =>
-      fetch("/api/tasks").then(r => r.json()).then(setTasks).catch(console.error);
+      fetch("/api/tasks")
+        .then(r => r.json())
+        // Guard against non-array response before passing to TaskPanel
+        .then(data => Array.isArray(data) && setTasks(data))
+        .catch(console.error);
     poll();
     const id = setInterval(poll, 3000);
     return () => clearInterval(id);
@@ -94,16 +100,16 @@ export default function App() {
         ]);
       } else {
         const inner = envelope.data ?? {};
-        // inner.prompt → local.build / codex.review prompt text
-        // inner.raw    → remote.worker raw CLI output
-        // inner.task_id / inner.action / etc. → parsed CLI fields
-        // Priority: prompt text (local/review) > task dispatch summary > raw CLI output
+        // inner.reply  → local.build execute: agent reply text (preferred)
+        // Priority: agent summary (execute result) > prompt text (prompt mode)
+        //           > task dispatch > raw CLI output
         const displayText =
+          inner.summary ??
           inner.prompt ??
           (inner.task_id
             ? `Task #${inner.task_id} dispatched${inner.result_path ? ` → ${inner.result_path}` : ""}`
             : null) ??
-          inner.raw ??
+          (typeof inner.raw === "string" ? inner.raw : inner.raw ? JSON.stringify(inner.raw, null, 2) : null) ??
           "No output";
 
         setMessages(prev => [
@@ -116,19 +122,25 @@ export default function App() {
             target:         inner.target ?? null,
             taskId:         inner.task_id ?? null,
             resultPath:     inner.result_path ?? null,
+            changedFiles:   inner.changedFiles ?? [],
+            durationMs:     inner.durationMs ?? null,
+            runStatus:      inner.runStatus ?? null,
             text:           displayText,
-            originalPrompt: text,       // kept for Execute button
-            executed:       mode === "execute"  // hides Execute button after run
+            originalPrompt: text,
+            executed:       mode === "execute"
           }
         ]);
       }
 
-      // Immediate task refresh after action
-      fetch("/api/tasks").then(r => r.json()).then(setTasks).catch(() => {});
+      // Immediate task refresh after action — guard against non-array response
+      fetch("/api/tasks")
+        .then(r => r.json())
+        .then(data => Array.isArray(data) && setTasks(data))
+        .catch(() => {});
     } catch (err) {
       setMessages(prev => [
         ...prev,
-        { id: Date.now() + 1, role: "error", text: err.message }
+        { id: Date.now() + 1, role: "error", text: err.message ?? "Unknown error" }
       ]);
     } finally {
       setLoading(false);

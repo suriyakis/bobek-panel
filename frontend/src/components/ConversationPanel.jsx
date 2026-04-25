@@ -38,7 +38,7 @@ function Message({ msg, onExecute }) {
   if (msg.role === "exec-start") {
     return (
       <div className="msg msg-exec-start">
-        <div className="msg-body" style={{ opacity: 0.7, fontStyle: "italic" }}>{msg.text}</div>
+        <div className="msg-body" style={{ opacity: 0.7, fontStyle: "italic" }}>{msg.text ?? ""}</div>
       </div>
     );
   }
@@ -49,7 +49,7 @@ function Message({ msg, onExecute }) {
         <div className="msg-header">
           <span className="msg-badge badge-user">You</span>
         </div>
-        <div className="msg-body">{msg.text}</div>
+        <div className="msg-body">{msg.text ?? ""}</div>
       </div>
     );
   }
@@ -65,13 +65,13 @@ function Message({ msg, onExecute }) {
             </span>
           )}
         </div>
-        <div className="msg-body">{msg.text}</div>
+        <div className="msg-body">{msg.text ?? "Unknown error"}</div>
       </div>
     );
   }
 
   // role === "result"
-  const routeMeta = ROUTE_LABELS[msg.route] ?? { label: msg.route, cls: "badge-user" };
+  const routeMeta = ROUTE_LABELS[msg.route] ?? { label: msg.route ?? "unknown", cls: "badge-user" };
   // Show copy+execute only for prompt-mode results (not after execution)
   const showActions = (msg.route === "local.build" || msg.route === "codex.review") && !msg.executed;
 
@@ -96,11 +96,39 @@ function Message({ msg, onExecute }) {
         </div>
       )}
 
-      <div className="msg-body">{msg.text}</div>
+      {msg.changedFiles?.length > 0 && (
+        <div className="msg-target">
+          Changed: 
+          <span style={{ fontFamily: "monospace", fontSize: 11 }}>
+            {msg.changedFiles.join("  ·  ")}
+          </span>
+        </div>
+      )}
+
+      {(msg.runStatus || msg.durationMs != null) && (
+        <div className="msg-target" style={{ opacity: 0.75 }}>
+          {msg.runStatus && (
+            <span style={{
+              padding: "1px 6px",
+              borderRadius: 3,
+              fontSize: 10,
+              fontWeight: 600,
+              marginRight: 8,
+              color: msg.runStatus === "succeeded" ? "#0a7" : "#c33",
+              border: `1px solid ${msg.runStatus === "succeeded" ? "#0a7" : "#c33"}`,
+            }}>
+              {msg.runStatus.toUpperCase()}
+            </span>
+          )}
+          {msg.durationMs != null && <span>{(msg.durationMs / 1000).toFixed(1)}s</span>}
+        </div>
+      )}
+
+      <div className="msg-body">{msg.text ?? ""}</div>
 
       {showActions && (
         <div className="msg-actions">
-          <CopyButton text={msg.text} />
+          <CopyButton text={msg.text ?? ""} />
           {onExecute && (
             <ExecuteButton onExecute={() => onExecute(msg.originalPrompt, msg.route)} />
           )}
@@ -110,7 +138,7 @@ function Message({ msg, onExecute }) {
   );
 }
 
-export default function ConversationPanel({ messages, loading, onExecute }) {
+export default function ConversationPanel({ messages = [], loading, onExecute }) {
   const bottomRef = useRef(null);
 
   useEffect(() => {

@@ -30,7 +30,8 @@ function TaskItem({ task }) {
   );
 }
 
-export default function TaskPanel({ tasks }) {
+// tasks defaults to [] so the component never crashes on an undefined prop
+export default function TaskPanel({ tasks = [] }) {
   // Most recent first
   const sorted = [...tasks].sort((a, b) => b.id - a.id);
 
