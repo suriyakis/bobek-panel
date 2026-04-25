@@ -26,7 +26,23 @@ function CopyButton({ text }) {
   );
 }
 
-function Message({ msg }) {
+function ExecuteButton({ onExecute }) {
+  return (
+    <button className="btn-execute" onClick={onExecute}>
+      ▶ Execute
+    </button>
+  );
+}
+
+function Message({ msg, onExecute }) {
+  if (msg.role === "exec-start") {
+    return (
+      <div className="msg msg-exec-start">
+        <div className="msg-body" style={{ opacity: 0.7, fontStyle: "italic" }}>{msg.text}</div>
+      </div>
+    );
+  }
+
   if (msg.role === "user") {
     return (
       <div className="msg msg-user">
@@ -56,13 +72,15 @@ function Message({ msg }) {
 
   // role === "result"
   const routeMeta = ROUTE_LABELS[msg.route] ?? { label: msg.route, cls: "badge-user" };
-  const showCopy  = msg.route === "local.build" || msg.route === "codex.review";
+  // Show copy+execute only for prompt-mode results (not after execution)
+  const showActions = (msg.route === "local.build" || msg.route === "codex.review") && !msg.executed;
 
   return (
     <div className="msg msg-result">
       <div className="msg-header">
         <span className={`msg-badge ${routeMeta.cls}`}>{routeMeta.label}</span>
         {msg.reason && <span style={{ fontSize: 11, color: "var(--muted)" }}>{msg.reason}</span>}
+        {msg.executed && <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: 8 }}>✓ executed</span>}
       </div>
 
       {msg.target && (
@@ -80,16 +98,19 @@ function Message({ msg }) {
 
       <div className="msg-body">{msg.text}</div>
 
-      {showCopy && (
+      {showActions && (
         <div className="msg-actions">
           <CopyButton text={msg.text} />
+          {onExecute && (
+            <ExecuteButton onExecute={() => onExecute(msg.originalPrompt, msg.route)} />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export default function ConversationPanel({ messages, loading }) {
+export default function ConversationPanel({ messages, loading, onExecute }) {
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -106,7 +127,7 @@ export default function ConversationPanel({ messages, loading }) {
       )}
 
       {messages.map(msg => (
-        <Message key={msg.id} msg={msg} />
+        <Message key={msg.id} msg={msg} onExecute={onExecute} />
       ))}
 
       {loading && (

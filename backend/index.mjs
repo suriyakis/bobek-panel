@@ -13,33 +13,19 @@ const BOBEK_DIR  = path.resolve(__dirname, "../../Bobek Folder");
 const PROJECTS_DIR = path.resolve(__dirname, "../..");
 const PORT = 3001;
 
-// ── Import Bobek db (DB path is __dirname-relative so safe from any cwd) ──────
+// -- Import Bobek db and shared router ----------------------------------------
 const bobek = await import(pathToFileURL(path.join(BOBEK_DIR, "src/db/index.mjs")).href);
-const { classifyRoute, listTasks, getTask, createTask } = bobek;
+const { listTasks, getTask, createTask } = bobek;
 
-// ── Mirror resolveRoute from cli.mjs ──────────────────────────────────────────
-const BUILD_ACTION_VERBS = [
-  "implement", "build", "fix", "improve", "add", "edit",
-  "change", "update", "create", "make", "write", "generate",
-  "apply", "modify", "support", "enable", "integrate"
-];
+const router = await import(pathToFileURL(path.join(BOBEK_DIR, "src/router.mjs")).href);
+const { resolveRoute } = router;
 
-function resolveRoute(prompt) {
-  const { route, reason } = classifyRoute(prompt);
-  if (route === "codex.review") {
-    const lower = prompt.toLowerCase();
-    const hit = BUILD_ACTION_VERBS.find(v => new RegExp(`\\b${v}\\b`).test(lower));
-    if (hit) return { route: "local.build", reason: `action verb "${hit}" overrides codex.review` };
-  }
-  return { route, reason };
-}
-
-// ── Response helpers ────────────────────────────────────────────────────────
+// -- Response helpers ----------------------------------------------------------
 
 /**
  * Parse the Bobek CLI's KEY: value stdout format into a plain object.
- * e.g.  "ACTION: remote.worker\nTASK_ID: 20\nRESULT_PATH: out\\task-20.json"
- * →     { action: "remote.worker", task_id: "20", result_path: "out\\task-20.json", raw: "..." }
+ * e.g.  "ACTION: remote.worker\nTASK_ID: 20\nRESULT_PATH: out\task-20.json"
+ *  =>   { action: "remote.worker", task_id: "20", result_path: "out\task-20.json", raw: "..." }
  */
 function parseCLIOutput(stdout) {
   const out = { raw: stdout };
@@ -60,13 +46,13 @@ function fail(error, route = null, reason = null) {
   return { ok: false, route, reason, error: String(error) };
 }
 
-// ── Express ───────────────────────────────────────────────────────────────────
+// -- Express ------------------------------------------------------------------
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// GET /api/projects — list folders under C:\AIProjects
+// GET /api/projects -- list folders under C:\AIProjects
 app.get("/api/projects", (_req, res) => {
   try {
     const dirs = fs.readdirSync(PROJECTS_DIR, { withFileTypes: true })
@@ -78,7 +64,7 @@ app.get("/api/projects", (_req, res) => {
   }
 });
 
-// GET /api/tasks — live task list from Bobek DB
+// GET /api/tasks -- live task list from Bobek DB
 app.get("/api/tasks", (_req, res) => {
   try {
     res.json(listTasks());
@@ -98,29 +84,42 @@ app.get("/api/tasks/:id", (req, res) => {
   }
 });
 
-// GET /api/route?prompt=... — classify without executing
+// GET /api/route?prompt=... -- classify without executing
 app.get("/api/route", (req, res) => {
   const prompt = req.query.prompt ?? "";
   if (!prompt) return res.status(400).json(fail("prompt required"));
   res.json(resolveRoute(prompt));
 });
 
-// POST /api/do — main action endpoint
+// POST /api/do -- main action endpoint
 //
-// Body:  { prompt: string, project?: string, mode?: "prompt" | "execute" }
-//   mode="prompt"  (default) → return prepared prompt text; caller pastes into agent
-//   mode="execute" → for codex.review, actually spawn the CLI (same as remote.worker)
+// Body: { prompt: string, project?: string, mode?: "prompt"|"execute", forceRoute?: string }
+//
+//   mode="prompt"  (default) -- return prepared prompt text; caller pastes into agent
+//   mode="execute" -- execute in-panel; result stays in panel (no Notepad, no TUI)
+//
+//   forceRoute -- skip resolveRoute entirely and use this route as-is.
+//     The Execute button must always supply forceRoute=msg.route so a codex.review
+//     card stays codex.review and a local.build card stays local.build regardless of
+//     what action verbs appear in the prepared prompt text.
 //
 // All responses use the stable envelope:
-//   success → { ok: true,  route, reason, data: { ... } }
-//   failure → { ok: false, route, reason, error: string }
+//   success => { ok: true,  route, reason, data: { ... } }
+//   failure => { ok: false, route, reason, error: string }
 app.post("/api/do", async (req, res) => {
-  const { prompt, project, mode = "prompt" } = req.body ?? {};
+  const { prompt, project, mode = "prompt", forceRoute } = req.body ?? {};
   if (!prompt) return res.status(400).json(fail("prompt required"));
 
-  const { route, reason } = resolveRoute(prompt);
+  // forceRoute bypasses resolveRoute entirely -- used by the Execute button so
+  // re-submitting an existing card never changes its route.
+  const { route, reason } = forceRoute
+    ? { route: forceRoute, reason: "client-forced route" }
+    : resolveRoute(prompt);
 
-  // ── local.build: generate prompt for the user to paste into their agent ──────
+  // -- local.build -------------------------------------------------------------
+  // Both prompt and execute return the prepared text in-panel.
+  // The CLI's "do local.build" handler opens Notepad + a new TUI window --
+  // not wanted here. Execution is handled entirely by the backend.
   if (route === "local.build") {
     const atMatch = prompt.match(/\bat\s+(.+)$/i);
     let targetPath = null;
@@ -145,9 +144,9 @@ app.post("/api/do", async (req, res) => {
     return res.json(ok(route, reason, { target: cdTarget, prompt: promptText }));
   }
 
-  // ── codex.review ─────────────────────────────────────────────────────────────
-  //   mode="prompt"  → return prompt text for manual pasting (default)
-  //   mode="execute" → spawn CLI immediately (enables future automation)
+  // -- codex.review ------------------------------------------------------------
+  // Both prompt and execute return the prepared text in-panel.
+  // The CLI's "do codex.review" handler also opens Notepad + TUI -- not wanted.
   if (route === "codex.review") {
     const promptText = [
       `You are inside ${BOBEK_DIR}.`,
@@ -157,25 +156,10 @@ app.post("/api/do", async (req, res) => {
       `Provide a structured analysis. Reply when done.`
     ].join("\n");
 
-    if (mode !== "execute") {
-      return res.json(ok(route, reason, { target: BOBEK_DIR, prompt: promptText }));
-    }
-
-    // execute mode: spawn CLI with review prompt (same path as remote.worker)
-    try {
-      const { stdout, stderr } = await execFileAsync(
-        "node",
-        ["src/cli.mjs", "do", promptText],
-        { cwd: BOBEK_DIR, encoding: "utf8", timeout: 120_000 }
-      );
-      const parsed = parseCLIOutput(stdout);
-      return res.json(ok(route, reason, { ...parsed, stderr: stderr || null }));
-    } catch (err) {
-      return res.status(500).json(fail(err.message, route, reason));
-    }
+    return res.json(ok(route, reason, { target: BOBEK_DIR, prompt: promptText }));
   }
 
-  // ── remote.worker: shell out to CLI, parse structured stdout ─────────────────
+  // -- remote.worker: shell out to CLI, parse structured stdout ----------------
   if (route === "remote.worker") {
     try {
       const { stdout, stderr } = await execFileAsync(
@@ -195,5 +179,5 @@ app.post("/api/do", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n  🦦 Bobek Panel backend  →  http://localhost:${PORT}\n`);
+  console.log(`\n  Bobek Panel backend  -->  http://localhost:${PORT}\n`);
 });

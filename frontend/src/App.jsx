@@ -31,18 +31,36 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
-  const sendPrompt = async (text) => {
+  // mode: "prompt" (default) | "execute"
+  // forceRoute: when set, backend skips resolveRoute and uses this route as-is.
+  //   Always pass forceRoute when re-submitting an existing card (Execute button)
+  //   so the route never changes due to action-verb re-classification.
+  const sendPrompt = async (text, mode = "prompt", forceRoute = null) => {
     if (!text.trim() || loading) return;
 
-    const userMsg = { id: Date.now(), role: "user", text };
-    setMessages(prev => [...prev, userMsg]);
+    // Only add a user message bubble for fresh prompts, not re-executions
+    if (mode === "prompt") {
+      const userMsg = { id: Date.now(), role: "user", text };
+      setMessages(prev => [...prev, userMsg]);
+    } else {
+      // For execute, add a small "▶ Executing…" marker so the user knows it started
+      setMessages(prev => [
+        ...prev,
+        { id: Date.now(), role: "exec-start", text: `▶ Executing: ${text.slice(0, 80)}${text.length > 80 ? "…" : ""}` }
+      ]);
+    }
     setLoading(true);
 
     try {
       const res = await fetch("/api/do", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text, project: selectedProject })
+        body: JSON.stringify({
+          prompt: text,
+          project: selectedProject,
+          mode,
+          ...(forceRoute ? { forceRoute } : {})
+        })
       });
 
       // Always parse as JSON; backend guarantees valid JSON on all paths
@@ -91,14 +109,16 @@ export default function App() {
         setMessages(prev => [
           ...prev,
           {
-            id:     Date.now() + 1,
-            role:   "result",
-            route:  envelope.route,
-            reason: envelope.reason,
-            target: inner.target ?? null,
-            taskId: inner.task_id ?? null,
-            resultPath: inner.result_path ?? null,
-            text:   displayText
+            id:             Date.now() + 1,
+            role:           "result",
+            route:          envelope.route,
+            reason:         envelope.reason,
+            target:         inner.target ?? null,
+            taskId:         inner.task_id ?? null,
+            resultPath:     inner.result_path ?? null,
+            text:           displayText,
+            originalPrompt: text,       // kept for Execute button
+            executed:       mode === "execute"  // hides Execute button after run
           }
         ]);
       }
@@ -131,7 +151,11 @@ export default function App() {
         />
 
         <div className="center-column">
-          <ConversationPanel messages={messages} loading={loading} />
+          <ConversationPanel
+            messages={messages}
+            loading={loading}
+            onExecute={(originalPrompt, route) => sendPrompt(originalPrompt, "execute", route)}
+          />
           <PromptInput onSend={sendPrompt} disabled={loading} />
         </div>
 
