@@ -1,0 +1,342 @@
+/* ── Design tokens ──────────────────────────────────────────────────────────── */
+:root {
+  --bg:          #0f1923;
+  --panel:       #1a2535;
+  --panel-alt:   #1e2d40;
+  --border:      #2d3f54;
+  --text:        #cdd9e5;
+  --muted:       #6e8098;
+  --accent:      #4d9de0;
+  --accent-dim:  rgba(77,157,224,0.12);
+  --success:     #4caf82;
+  --error:       #e05252;
+  --warn:        #d4a017;
+
+  --route-local:  #4d9de0;
+  --route-codex:  #a78bfa;
+  --route-remote: #fb923c;
+
+  --radius: 8px;
+  --font:   -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono:   "Cascadia Code", "Fira Code", "Consolas", monospace;
+}
+
+/* ── Reset ──────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── App shell ──────────────────────────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  height: 48px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.app-logo   { font-size: 20px; }
+.app-title  { font-size: 15px; font-weight: 700; color: var(--accent); }
+.app-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
+.app-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Center column ──────────────────────────────────────────────────────────── */
+.center-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ── Shared sidebar styles ──────────────────────────────────────────────────── */
+.sidebar {
+  width: 220px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.sidebar-left  { border-right: 1px solid var(--border); }
+.sidebar-right { border-left:  1px solid var(--border); width: 260px; }
+
+.sidebar-header {
+  padding: 10px 16px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.sidebar-scroll::-webkit-scrollbar { width: 4px; }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Project list ───────────────────────────────────────────────────────────── */
+.project-item {
+  display: block;
+  width: 100%;
+  padding: 7px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.1s;
+}
+
+.project-item:hover   { background: var(--panel-alt); }
+.project-item.active  {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Conversation panel ─────────────────────────────────────────────────────── */
+.conversation {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.conversation::-webkit-scrollbar { width: 4px; }
+.conversation::-webkit-scrollbar-track { background: transparent; }
+.conversation::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.conv-empty {
+  margin: auto;
+  text-align: center;
+  color: var(--muted);
+}
+.conv-empty-icon { font-size: 36px; margin-bottom: 8px; }
+.conv-empty p    { font-size: 13px; }
+
+/* Message bubbles */
+.msg { display: flex; flex-direction: column; gap: 4px; max-width: 100%; }
+
+.msg-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.msg-badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-user   { background: rgba(100,116,139,0.2); color: #94a3b8; }
+.badge-local  { background: rgba(77,157,224,0.15); color: var(--route-local); }
+.badge-codex  { background: rgba(167,139,250,0.15); color: var(--route-codex); }
+.badge-remote { background: rgba(251,146,60,0.15);  color: var(--route-remote); }
+.badge-error  { background: rgba(224,82,82,0.15);   color: var(--error); }
+
+.msg-body {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.msg-user .msg-body {
+  background: var(--accent-dim);
+  border-color: rgba(77,157,224,0.25);
+  color: var(--text);
+  align-self: flex-end;
+}
+
+.msg-result .msg-body { font-family: var(--mono); font-size: 12px; }
+.msg-error  .msg-body { border-color: var(--error); color: var(--error); }
+
+.msg-target {
+  font-size: 11px;
+  color: var(--muted);
+}
+.msg-target span { color: var(--accent); }
+
+.msg-actions { display: flex; gap: 8px; margin-top: 4px; }
+
+.btn-copy {
+  padding: 4px 12px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.btn-copy:hover        { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.btn-copy.copied       { color: var(--success); border-color: var(--success); }
+
+/* Loading indicator */
+.msg-loading .msg-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Prompt input ───────────────────────────────────────────────────────────── */
+.prompt-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.prompt-textarea {
+  flex: 1;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  padding: 9px 12px;
+  resize: none;
+  min-height: 40px;
+  max-height: 140px;
+  outline: none;
+  transition: border-color 0.15s;
+  line-height: 1.5;
+}
+.prompt-textarea:focus { border-color: var(--accent); }
+.prompt-textarea::placeholder { color: var(--muted); }
+
+.prompt-send {
+  padding: 9px 18px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  height: 40px;
+  transition: opacity 0.15s;
+}
+.prompt-send:hover:not(:disabled) { opacity: 0.88; }
+.prompt-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Task panel ─────────────────────────────────────────────────────────────── */
+.task-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: default;
+  transition: background 0.1s;
+}
+.task-item:hover { background: var(--panel-alt); }
+
+.task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.task-type {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.task-status {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.status-queued   { background: rgba(212,160,23,0.15);  color: var(--warn); }
+.status-running  { background: rgba(77,157,224,0.15);  color: var(--accent); }
+.status-done     { background: rgba(76,175,130,0.15);  color: var(--success); }
+.status-failed   { background: rgba(224,82,82,0.15);   color: var(--error); }
+
+.task-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.task-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
